@@ -1,66 +1,57 @@
-name: NodeSeek 自动签到
+name: Daily NodeSeek Check-In
 
 on:
   schedule:
-    - cron: '30 8 * * *'   # 北京时间 16:30（UTC 8:30）
-  workflow_dispatch:       # 支持手动触发
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
-  nodeseek-checkin:
-    name: 执行 NodeSeek 签到
+  checkin:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🛎️ 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
       # =======================================================
-      # 1. 精准拉取私库文件 (增加了 notify.py 避免报错)
-      - name: 📥 拉取私库文件 (nodeseek.py + requirements.txt + notify.py)
+      # 1. 精准拉取：只拉取私库 NodeSeek 文件夹下的 nodeseek.py 这一个文件
+      - name: 📥 拉取私库 nodeseek.py
         uses: actions/checkout@v4
         with:
           repository: walx0705/hosting
           token: ${{ secrets.GH_TOKEN }}
           path: private_repo
-          sparse-checkout: |
-            NodeSeek/nodeseek.py
-            NodeSeek/requirements.txt
-            NodeSeek/notify.py  # 加上这一行，拉取被依赖的通知模块
+          sparse-checkout: NodeSeek/nodeseek.py
       # =======================================================
 
-      - name: 🐍 设置 Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
 
       # =======================================================
-      # 2. 修改路径：改为拉取私库里的 requirements.txt 来安装依赖
-      - name: ⬇️ 安装依赖
+      # 2. 解决上一张截图报错的 /ql 文件夹权限问题
+      - name: 🛠️ 修复 /ql 目录权限
         run: |
-          pip install -r private_repo/NodeSeek/requirements.txt
+          sudo mkdir -p /ql
+          sudo chmod 777 /ql
       # =======================================================
 
       # =======================================================
-      # 3. 运行私库里的签到脚本
-      - name: 🚀 运行签到脚本
+      # 3. 运行拉取下来的私库脚本
+      - name: Run check-in
         env:
-          NS_COOKIE: ${{ secrets.NS_COOKIE }}
-          NS_SIGN_MODE: ${{ secrets.NS_SIGN_MODE || 'chicken' }}
-          NS_HEADLESS: ${{ secrets.NS_HEADLESS || 'true' }}
-          NS_LOG_LEVEL: ${{ secrets.NS_LOG_LEVEL || 'INFO' }}
-          PUSH_PLUS_TOKEN: ${{ secrets.PUSH_PLUS_TOKEN }}
-          PUSH_PLUS_USER: ${{ secrets.PUSH_PLUS_USER }}
-          DD_BOT_SECRET: ${{ secrets.DD_BOT_SECRET }}
-          DD_BOT_TOKEN: ${{ secrets.DD_BOT_TOKEN }}
+          NS_COOKIES: ${{ secrets.NS_COOKIES }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_USER_ID: ${{ secrets.TG_USER_ID }}
-          WXPUSHER_APP_TOKEN: ${{ secrets.WXPUSHER_APP_TOKEN }}
-        run: |
-          python private_repo/NodeSeek/nodeseek.py
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          NS_RANDOM: true    # 签到模式：true = 试试手气，false = 固定鸡腿（默认 true）
+        run: python private_repo/NodeSeek/nodeseek.py
       # =======================================================
 
       # =======================================================
-      # 4. 清理旧运行记录
+      # 4. 清理旧运行记录（加上 --repo 避免找不到 .git 报错）
       - name: 🧹 清理旧的工作流运行记录
         if: always()
         env:
