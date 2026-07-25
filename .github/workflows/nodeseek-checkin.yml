@@ -14,6 +14,17 @@ jobs:
       - name: 🛎️ 检出代码
         uses: actions/checkout@v4
 
+      # =======================================================
+      # 1. 新增：精准拉取私库中的 NodeSeek/nodeseek.py 这一个文件
+      - name: 📥 拉取私库 nodeseek.py
+        uses: actions/checkout@v4
+        with:
+          repository: walx0705/hosting
+          token: ${{ secrets.GH_TOKEN }}
+          path: private_repo
+          sparse-checkout: NodeSeek/nodeseek.py
+      # =======================================================
+
       - name: 🐍 设置 Python
         uses: actions/setup-python@v5
         with:
@@ -23,6 +34,8 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      # =======================================================
+      # 2. 仅修改运行路径：运行拉取下来的 private_repo/NodeSeek/nodeseek.py
       - name: 🚀 运行签到脚本
         env:
           NS_COOKIE: ${{ secrets.NS_COOKIE }}
@@ -37,4 +50,5 @@ jobs:
           TG_USER_ID: ${{ secrets.TG_USER_ID }}
           WXPUSHER_APP_TOKEN: ${{ secrets.WXPUSHER_APP_TOKEN }}
         run: |
-          python nodeseek.py
+          python private_repo/NodeSeek/nodeseek.py
+      # =======================================================
