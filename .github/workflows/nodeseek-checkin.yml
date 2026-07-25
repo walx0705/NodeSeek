@@ -15,14 +15,16 @@ jobs:
         uses: actions/checkout@v4
 
       # =======================================================
-      # 1. 新增：精准拉取私库中的 NodeSeek/nodeseek.py 这一个文件
-      - name: 📥 拉取私库 nodeseek.py
+      # 1. 精准拉取私库 NodeSeek 文件夹下的 py 和 txt 两个文件
+      - name: 📥 拉取私库文件 (nodeseek.py + requirements.txt)
         uses: actions/checkout@v4
         with:
           repository: walx0705/hosting
           token: ${{ secrets.GH_TOKEN }}
           path: private_repo
-          sparse-checkout: NodeSeek/nodeseek.py
+          sparse-checkout: |
+            NodeSeek/nodeseek.py
+            NodeSeek/requirements.txt
       # =======================================================
 
       - name: 🐍 设置 Python
@@ -30,12 +32,15 @@ jobs:
         with:
           python-version: '3.11'
 
+      # =======================================================
+      # 2. 修改路径：改为拉取私库里的 requirements.txt 来安装依赖
       - name: ⬇️ 安装依赖
         run: |
-          pip install -r requirements.txt
+          pip install -r private_repo/NodeSeek/requirements.txt
+      # =======================================================
 
       # =======================================================
-      # 2. 仅修改运行路径：运行拉取下来的 private_repo/NodeSeek/nodeseek.py
+      # 3. 运行私库里的签到脚本
       - name: 🚀 运行签到脚本
         env:
           NS_COOKIE: ${{ secrets.NS_COOKIE }}
@@ -51,4 +56,22 @@ jobs:
           WXPUSHER_APP_TOKEN: ${{ secrets.WXPUSHER_APP_TOKEN }}
         run: |
           python private_repo/NodeSeek/nodeseek.py
+      # =======================================================
+
+      # =======================================================
+      # 4. 清理旧运行记录
+      - name: 🧹 清理旧的工作流运行记录
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs=$(gh run list --repo "${{ github.repository }}" --workflow="${{ github.workflow }}" --limit=100 --json databaseId --jq '.[].databaseId')
+          count=0
+          for run_id in $runs; do
+            count=$((count + 1))
+            if [ $count -gt 1 ]; then
+              echo "删除运行记录: $run_id"
+              gh run delete $run_id --repo "${{ github.repository }}" || true
+            fi
+          done
       # =======================================================
